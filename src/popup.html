@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flash Guard</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="header">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" fill="#2d2d2d" stroke="#4a9eff" stroke-width="2"/>
+          <path d="M12 6v6l4 2" stroke="#4a9eff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h1>Flash Guard</h1>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="enableToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <main class="main-content">
+      <section class="setting-group">
+        <label class="setting-label">
+          <span>Background Color</span>
+          <div class="color-input-wrapper">
+            <input type="color" id="backgroundColor" value="#1a1a1a">
+            <input type="text" id="backgroundColorText" value="#1a1a1a" maxlength="7">
+          </div>
+        </label>
+      </section>
+
+      <section class="setting-group">
+        <label class="setting-label">
+          <span>Fade Duration</span>
+          <div class="range-wrapper">
+            <input type="range" id="transitionDuration" min="0" max="500" value="200">
+            <span id="transitionValue">200ms</span>
+          </div>
+        </label>
+      </section>
+
+      <section class="setting-group">
+        <label class="setting-label checkbox-label">
+          <input type="checkbox" id="autoDisable" checked>
+          <span>Auto-disable on dark sites</span>
+        </label>
+      </section>
+
+      <section class="setting-group">
+        <div class="domain-section">
+          <h3>Excluded Domains</h3>
+          <div class="domain-input-wrapper">
+            <input type="text" id="newDomain" placeholder="example.com">
+            <button id="addDomain" class="btn-add">Add</button>
+          </div>
+          <ul id="excludedList" class="excluded-list">
+            <!-- Domains will be populated here -->
+          </ul>
+        </div>
+      </section>
+
+      <section class="current-site">
+        <button id="excludeCurrent" class="btn-exclude">
+          Exclude Current Site
+        </button>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <a href="#" id="openOptions">Advanced Settings</a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

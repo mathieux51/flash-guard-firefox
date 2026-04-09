@@ -1,0 +1,20 @@
+/**
+ * Flash Guard - Injected CSS
+ * Applied at document_start to prevent white flash
+ */
+
+/* Initial dark background applied to html element */
+html:not([data-flash-guard-ready]) {
+  background-color: #1a1a1a !important;
+}
+
+/* Overlay styles (backup if JS doesn't load fast enough) */
+#flash-guard-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+}

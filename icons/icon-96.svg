@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a9eff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d7dd2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Shield background -->
+  <path d="M48 8 L84 24 L84 48 C84 68 68 84 48 92 C28 84 12 68 12 48 L12 24 Z" fill="#1a1a1a" stroke="url(#grad1)" stroke-width="3"/>
+  <!-- Eye symbol -->
+  <ellipse cx="48" cy="48" rx="20" ry="14" fill="none" stroke="url(#grad1)" stroke-width="3"/>
+  <circle cx="48" cy="48" r="8" fill="url(#grad1)"/>
+  <!-- Flash protection lines -->
+  <path d="M28 32 L36 40" stroke="#4a9eff" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M68 32 L60 40" stroke="#4a9eff" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M28 64 L36 56" stroke="#4a9eff" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M68 64 L60 56" stroke="#4a9eff" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,48 @@
+{
+  "manifest_version": 2,
+  "name": "Flash Guard",
+  "version": "1.0.0",
+  "description": "Prevents white background flashes during page loads by applying a dark background before content renders.",
+  "author": "Flash Guard",
+  "homepage_url": "https://github.com/mathieux51/flash-guard-firefox",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "flash-guard@example.com",
+      "strict_min_version": "57.0"
+    }
+  },
+  "icons": {
+    "48": "icons/icon-48.svg",
+    "96": "icons/icon-96.svg"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["src/background.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"],
+      "css": ["src/flash-guard.css"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "browser_action": {
+    "default_icon": {
+      "48": "icons/icon-48.svg",
+      "96": "icons/icon-96.svg"
+    },
+    "default_title": "Flash Guard",
+    "default_popup": "src/popup.html"
+  },
+  "options_ui": {
+    "page": "src/options.html",
+    "browser_style": true
+  }
+}
