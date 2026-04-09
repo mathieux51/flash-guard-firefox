@@ -13,14 +13,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install web-ext
+      - name: Install web-ext and jq
         run: npm install -g web-ext
+
+      - name: Bump version in manifest
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          VERSION="1.0.${COMMIT_COUNT}"
+          jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Deploying version $VERSION"
 
       - name: Validate extension
         run: web-ext lint --source-dir=.
