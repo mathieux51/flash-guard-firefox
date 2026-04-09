@@ -7,13 +7,13 @@
   "homepage_url": "https://github.com/mathieux51/flash-guard-firefox",
   "browser_specific_settings": {
     "gecko": {
-      "id": "flash-guard@example.com",
+      "id": "flash-guard@mathieux51.dev",
       "strict_min_version": "57.0"
     }
   },
   "icons": {
-    "48": "icons/icon-48.svg",
-    "96": "icons/icon-96.svg"
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
   },
   "permissions": [
     "storage",
@@ -35,8 +35,8 @@
   ],
   "browser_action": {
     "default_icon": {
-      "48": "icons/icon-48.svg",
-      "96": "icons/icon-96.svg"
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
     },
     "default_title": "Flash Guard",
     "default_popup": "src/popup.html"
