@@ -8,7 +8,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "flash-guard@mathieux51.dev",
-      "strict_min_version": "57.0"
+      "strict_min_version": "58.0"
     }
   },
   "icons": {
