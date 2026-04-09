@@ -59,6 +59,10 @@
       if (overlay && overlay.parentNode) {
         overlay.parentNode.removeChild(overlay);
       }
+      // Remove the CSS dark background rule
+      if (document.documentElement) {
+        document.documentElement.setAttribute('data-flash-guard-ready', '');
+      }
       isActive = false;
     }, duration);
   }
@@ -157,6 +161,10 @@
       });
 
       if (!response || !response.settings.enabled || response.excluded) {
+        // Mark as ready so the CSS rule stops applying the dark background
+        if (document.documentElement) {
+          document.documentElement.setAttribute('data-flash-guard-ready', '');
+        }
         return;
       }
 

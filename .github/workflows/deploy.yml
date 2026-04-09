@@ -1,0 +1,37 @@
+name: Deploy to Firefox Add-ons (AMO)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build and Publish to AMO
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install web-ext
+        run: npm install -g web-ext
+
+      - name: Validate extension
+        run: web-ext lint --source-dir=.
+
+      - name: Build extension
+        run: web-ext build --source-dir=. --artifacts-dir=./web-ext-artifacts --overwrite-dest
+
+      - name: Sign and publish to AMO
+        run: |
+          web-ext sign \
+            --source-dir=. \
+            --channel=listed \
+            --api-key=${{ secrets.AMO_JWT_ISSUER }} \
+            --api-secret=${{ secrets.AMO_JWT_SECRET }}
