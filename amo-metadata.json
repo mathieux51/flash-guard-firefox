@@ -1,4 +1,9 @@
 {
+  "categories": {
+    "firefox": [
+      "appearance"
+    ]
+  },
   "version": {
     "license": "MIT"
   }
