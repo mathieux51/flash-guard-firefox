@@ -33,5 +33,6 @@ jobs:
           web-ext sign \
             --source-dir=. \
             --channel=listed \
+            --amo-metadata=amo-metadata.json \
             --api-key=${{ secrets.AMO_JWT_ISSUER }} \
             --api-secret=${{ secrets.AMO_JWT_SECRET }}
