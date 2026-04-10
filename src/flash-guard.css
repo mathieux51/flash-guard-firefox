@@ -1,14 +1,19 @@
 /**
  * Flash Guard - Injected CSS
- * Applied at document_start to prevent white flash
+ * Applied at document_start to prevent white flash.
+ *
+ * The html AND body rules ensure no white background is painted
+ * while the JS overlay is being set up. Once the extension marks
+ * the page as ready (data-flash-guard-ready attribute on <html>),
+ * these rules stop applying.
  */
 
-/* Initial dark background applied to html element */
-html:not([data-flash-guard-ready]) {
+html:not([data-flash-guard-ready]),
+html:not([data-flash-guard-ready]) > body {
   background-color: #1a1a1a !important;
 }
 
-/* Overlay styles (backup if JS doesn't load fast enough) */
+/* Overlay element injected by content.js */
 #flash-guard-overlay {
   position: fixed !important;
   top: 0 !important;
