@@ -18,11 +18,13 @@
   "permissions": [
     "storage",
     "tabs",
+    "webRequest",
+    "webRequestBlocking",
     "<all_urls>"
   ],
   "background": {
     "scripts": ["src/background.js"],
-    "persistent": false
+    "persistent": true
   },
   "content_scripts": [
     {

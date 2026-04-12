@@ -57,11 +57,17 @@
   // Utility helpers
   // ---------------------------------------------------------------
 
-  /** Disengage all injected CSS (inline style + file rule). */
+  /** Disengage all injected CSS (stream-filter style, inline style, file rule). */
   function markReady() {
     if (document.documentElement) {
       document.documentElement.setAttribute('data-flash-guard-ready', '');
     }
+    // Remove stream-filter injected style (from background.js)
+    var fgEarly = document.getElementById('fg-early');
+    if (fgEarly && fgEarly.parentNode) {
+      fgEarly.parentNode.removeChild(fgEarly);
+    }
+    // Remove content-script injected style
     if (earlyStyle && earlyStyle.parentNode) {
       earlyStyle.parentNode.removeChild(earlyStyle);
       earlyStyle = null;

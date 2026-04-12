@@ -1,54 +1,197 @@
 /**
  * Flash Guard - Background Script
- * Manages extension state and settings
+ * Manages extension state, settings, and early CSS injection.
+ *
+ * The stream filter (filterResponseData) injects a dark-background
+ * <style> tag directly into HTML response bodies. This is the ONLY
+ * mechanism that runs before Firefox's first paint. Content scripts,
+ * even at document_start, execute after the browser has already
+ * painted at least one blank (white) frame.
  */
 
-const DEFAULT_SETTINGS = {
+var DEFAULT_SETTINGS = {
   enabled: true,
   backgroundColor: '#1a1a1a',
   transitionDuration: 200,
-  detectThreshold: 240, // RGB threshold for "white" detection (0-255)
+  detectThreshold: 240,
   excludedDomains: [],
   autoDisableOnDarkSites: true
 };
 
-// Initialize settings on install
-browser.runtime.onInstalled.addListener(async () => {
-  const stored = await browser.storage.local.get('settings');
-  if (!stored.settings) {
-    await browser.storage.local.set({ settings: DEFAULT_SETTINGS });
+// -------------------------------------------------------------------
+// Settings cache — kept in memory so the stream filter can check
+// enabled/excluded status synchronously (no async storage reads).
+// -------------------------------------------------------------------
+var cachedSettings = Object.assign({}, DEFAULT_SETTINGS);
+
+function refreshCache() {
+  browser.storage.local.get('settings').then(function(stored) {
+    if (stored.settings) {
+      cachedSettings = Object.assign({}, DEFAULT_SETTINGS, stored.settings);
+    }
+  });
+}
+
+browser.storage.onChanged.addListener(function(changes) {
+  if (changes.settings) {
+    cachedSettings = Object.assign(
+      {}, DEFAULT_SETTINGS, changes.settings.newValue
+    );
   }
 });
 
-// Get current settings
-async function getSettings() {
-  const stored = await browser.storage.local.get('settings');
-  return { ...DEFAULT_SETTINGS, ...stored.settings };
+refreshCache();
+
+// -------------------------------------------------------------------
+// Settings CRUD (async, reads from storage)
+// -------------------------------------------------------------------
+
+browser.runtime.onInstalled.addListener(function() {
+  browser.storage.local.get('settings').then(function(stored) {
+    if (!stored.settings) {
+      browser.storage.local.set({ settings: DEFAULT_SETTINGS });
+    }
+  });
+});
+
+function getSettings() {
+  return browser.storage.local.get('settings').then(function(stored) {
+    return Object.assign({}, DEFAULT_SETTINGS, stored.settings);
+  });
 }
 
-// Update settings
-async function updateSettings(newSettings) {
-  const current = await getSettings();
-  const updated = { ...current, ...newSettings };
-  await browser.storage.local.set({ settings: updated });
-  return updated;
+function updateSettings(newSettings) {
+  return getSettings().then(function(current) {
+    var updated = Object.assign({}, current, newSettings);
+    return browser.storage.local.set({ settings: updated }).then(function() {
+      return updated;
+    });
+  });
 }
 
-// Check if domain is excluded
+// -------------------------------------------------------------------
+// Domain exclusion
+// -------------------------------------------------------------------
+
 function isDomainExcluded(url, excludedDomains) {
   try {
-    const hostname = new URL(url).hostname;
-    return excludedDomains.some(domain => {
-      const pattern = domain.replace(/\*/g, '.*');
-      return new RegExp(`^${pattern}$`, 'i').test(hostname);
+    var hostname = new URL(url).hostname;
+    return excludedDomains.some(function(domain) {
+      var pattern = domain.replace(/\*/g, '.*');
+      return new RegExp('^' + pattern + '$', 'i').test(hostname);
     });
-  } catch {
+  } catch (e) {
     return false;
   }
 }
 
-// Handle messages from content scripts and popup
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+// -------------------------------------------------------------------
+// Stream filter — inject dark CSS into HTML responses
+//
+// filterResponseData intercepts the raw HTTP response body before
+// Firefox hands it to the HTML parser. We search the first chunk
+// for <head or <html and inject a <style> block right after the
+// opening tag. Because the CSS is part of the actual HTML, it is
+// applied during parsing — before the first paint.
+//
+// The injected rule uses :not([data-flash-guard-ready]) so the
+// content script can disable it later by setting the attribute.
+// -------------------------------------------------------------------
+
+var EARLY_CSS = '<style id="fg-early">' +
+  'html:not([data-flash-guard-ready]),' +
+  'html:not([data-flash-guard-ready])>body' +
+  '{background:#1a1a1a!important}' +
+  '</style>';
+var EARLY_CSS_BYTES = new TextEncoder().encode(EARLY_CSS);
+
+browser.webRequest.onHeadersReceived.addListener(
+  function(details) {
+    // Only process HTML responses
+    if (!isHtmlResponse(details)) return;
+
+    // Skip if disabled or domain excluded (synchronous check)
+    if (!cachedSettings.enabled) return;
+    if (isDomainExcluded(details.url, cachedSettings.excludedDomains)) return;
+
+    var filter = browser.webRequest.filterResponseData(details.requestId);
+    var injected = false;
+
+    filter.ondata = function(event) {
+      if (!injected) {
+        injected = true;
+        var bytes = new Uint8Array(event.data);
+        var pos = findInjectionPoint(bytes);
+
+        if (pos !== -1) {
+          filter.write(event.data.slice(0, pos));
+          filter.write(EARLY_CSS_BYTES.buffer);
+          filter.write(event.data.slice(pos));
+          return;
+        }
+      }
+      filter.write(event.data);
+    };
+
+    filter.onstop = function() {
+      filter.close();
+    };
+
+    filter.onerror = function() {
+      try { filter.disconnect(); } catch (e) { /* ignore */ }
+    };
+  },
+  { urls: ['http://*/*', 'https://*/*'], types: ['main_frame', 'sub_frame'] },
+  ['blocking', 'responseHeaders']
+);
+
+function isHtmlResponse(details) {
+  if (!details.responseHeaders) return false;
+  for (var i = 0; i < details.responseHeaders.length; i++) {
+    if (details.responseHeaders[i].name.toLowerCase() === 'content-type') {
+      return details.responseHeaders[i].value.toLowerCase().indexOf('text/html') !== -1;
+    }
+  }
+  return false;
+}
+
+/**
+ * Search the first 4 KB of raw bytes for <head...> or <html...> and
+ * return the byte offset just after the closing >. Returns -1 if not
+ * found. Pattern matching is case-insensitive but operates on raw
+ * bytes (HTML tags are guaranteed ASCII).
+ */
+function findInjectionPoint(bytes) {
+  var limit = Math.min(bytes.length, 4096);
+  var pos = findTagClose(bytes, limit, 'head');
+  if (pos !== -1) return pos;
+  return findTagClose(bytes, limit, 'html');
+}
+
+function findTagClose(bytes, limit, tag) {
+  for (var i = 0; i <= limit - tag.length - 1; i++) {
+    if (bytes[i] !== 60) continue; // 60 = '<'
+    var match = true;
+    for (var j = 0; j < tag.length; j++) {
+      var b = bytes[i + 1 + j];
+      var lower = tag.charCodeAt(j);       // e.g. 104 for 'h'
+      var upper = lower - 32;              // e.g.  72 for 'H'
+      if (b !== lower && b !== upper) { match = false; break; }
+    }
+    if (!match) continue;
+    // Found the tag name — advance past the closing >
+    for (var k = i + 1 + tag.length; k < bytes.length; k++) {
+      if (bytes[k] === 62) return k + 1; // 62 = '>'
+    }
+  }
+  return -1;
+}
+
+// -------------------------------------------------------------------
+// Message handling (content scripts, popup, options)
+// -------------------------------------------------------------------
+
+browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   switch (message.type) {
     case 'GET_SETTINGS':
       getSettings().then(sendResponse);
@@ -59,16 +202,16 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case 'CHECK_DOMAIN':
-      getSettings().then(settings => {
-        const excluded = isDomainExcluded(message.url, settings.excludedDomains);
-        sendResponse({ excluded, settings });
+      getSettings().then(function(settings) {
+        var excluded = isDomainExcluded(message.url, settings.excludedDomains);
+        sendResponse({ excluded: excluded, settings: settings });
       });
       return true;
 
     case 'TOGGLE_ENABLED':
-      getSettings().then(settings => {
-        const updated = { ...settings, enabled: !settings.enabled };
-        updateSettings(updated).then(() => {
+      getSettings().then(function(settings) {
+        var updated = Object.assign({}, settings, { enabled: !settings.enabled });
+        updateSettings(updated).then(function() {
           updateBrowserActionIcon(updated.enabled);
           sendResponse(updated);
         });
@@ -76,8 +219,8 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case 'ADD_EXCLUDED_DOMAIN':
-      getSettings().then(settings => {
-        if (!settings.excludedDomains.includes(message.domain)) {
+      getSettings().then(function(settings) {
+        if (settings.excludedDomains.indexOf(message.domain) === -1) {
           settings.excludedDomains.push(message.domain);
           updateSettings(settings).then(sendResponse);
         } else {
@@ -87,28 +230,30 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case 'REMOVE_EXCLUDED_DOMAIN':
-      getSettings().then(settings => {
-        settings.excludedDomains = settings.excludedDomains.filter(
-          d => d !== message.domain
-        );
+      getSettings().then(function(settings) {
+        settings.excludedDomains = settings.excludedDomains.filter(function(d) {
+          return d !== message.domain;
+        });
         updateSettings(settings).then(sendResponse);
       });
       return true;
   }
 });
 
-// Update browser action icon based on enabled state
+// -------------------------------------------------------------------
+// Browser action icon
+// -------------------------------------------------------------------
+
 function updateBrowserActionIcon(enabled) {
-  const iconPath = enabled ? 'icons/icon' : 'icons/icon-disabled';
+  var iconPath = enabled ? 'icons/icon' : 'icons/icon-disabled';
   browser.browserAction.setIcon({
     path: {
-      48: `${iconPath}-48.png`,
-      96: `${iconPath}-96.png`
+      48: iconPath + '-48.png',
+      96: iconPath + '-96.png'
     }
   });
 }
 
-// Initialize icon state
-getSettings().then(settings => {
+getSettings().then(function(settings) {
   updateBrowserActionIcon(settings.enabled);
 });
