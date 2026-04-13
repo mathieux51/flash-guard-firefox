@@ -56,15 +56,29 @@ Access advanced settings via the popup's "Advanced Settings" link or through `ab
 
 ## How It Works
 
-1. **Early Injection**: CSS and JavaScript are injected at `document_start`, before any page content renders
+Flash Guard uses a 3-layer approach to eliminate white flashes:
 
-2. **Overlay Creation**: A full-screen dark overlay is immediately applied to prevent the white flash
+1. **Stream Filter** (`filterResponseData`): Intercepts the raw HTTP response and injects a dark `<style>` tag into the HTML before Firefox's parser sees it. This is the earliest extension-controlled injection point.
 
-3. **Background Detection**: The extension monitors the page's actual background color as it loads
+2. **Content Script CSS**: A manifest-declared CSS file and an inline `<style>` injected at `document_start` provide belt-and-suspenders dark backgrounds.
 
-4. **Smart Removal**: Once the page's CSS loads or a dark background is detected, the overlay smoothly fades out
+3. **Overlay Div**: A full-viewport dark overlay is injected synchronously before any async calls. Once the page's real background is ready, the overlay fades out.
 
-5. **Safety Timeout**: The overlay automatically removes after 3 seconds maximum to prevent blocking content
+4. **Color Scheme Override**: Uses `browserSettings.overrideContentColorScheme` to tell Firefox to report `prefers-color-scheme: dark` to all pages. Sites that respect this media query will load their dark variant automatically.
+
+5. **Smart Removal**: On `DOMContentLoaded`, the extension disengages its own CSS (while the overlay still covers the viewport), reads the real page background, and fades the overlay. A 3-second safety timeout guarantees removal.
+
+### Eliminating the Pre-Navigation White Flash
+
+When Firefox navigates to a URL, it clears the current page and paints the default canvas color (white) before the HTTP response even arrives. No extension can inject content during this window. Flash Guard handles everything after the response, but this single pre-response white frame is visible on very fast pages (e.g. localhost).
+
+To fix this, change Firefox's default canvas color:
+
+1. Open `about:config` in a new tab
+2. Search for `browser.display.background_color`
+3. Change the value from `#FFFFFF` to `#1a1a1a`
+
+This is a global Firefox preference that changes the default background for pages that do not set their own. You can revert it at any time by resetting the value back to `#FFFFFF`.
 
 ## Configuration
 
@@ -93,18 +107,20 @@ You can use wildcards in domain exclusions:
 
 ```
 flash-guard-firefox/
-├── manifest.json           # Extension manifest
+├── manifest.json           # Extension manifest (Manifest V2)
 ├── icons/
-│   ├── icon-48.svg        # Toolbar icon
-│   └── icon-96.svg        # High-DPI icon
+│   ├── icon-48.png         # Toolbar icon
+│   ├── icon-96.png         # High-DPI icon
+│   ├── icon-disabled-48.png # Disabled state icon
+│   └── icon-disabled-96.png # Disabled state high-DPI icon
 └── src/
-    ├── background.js      # Background script for settings management
-    ├── content.js         # Content script for overlay injection
-    ├── flash-guard.css    # Early-injected CSS
+    ├── background.js      # Background script: settings, stream filter, color scheme override
+    ├── content.js         # Content script: overlay injection, dark site detection
+    ├── flash-guard.css    # Early-injected CSS (manifest content_scripts)
     ├── popup.html         # Popup UI
     ├── popup.css          # Popup styles
     ├── popup.js           # Popup logic
-    ├── options.html       # Options page
+    ├── options.html       # Options page (includes about:config instructions)
     └── options.js         # Options page logic
 ```
 

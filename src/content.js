@@ -117,12 +117,6 @@
     return null;
   }
 
-  function isWhiteColor(color, threshold) {
-    var rgb = parseColor(color);
-    if (!rgb) return true; // transparent defaults to white in browsers
-    return rgb.r >= threshold && rgb.g >= threshold && rgb.b >= threshold;
-  }
-
   function isDarkColor(color, threshold) {
     var rgb = parseColor(color);
     if (!rgb) return false;
@@ -144,7 +138,8 @@
 
   function pageHasDarkBackground(threshold) {
     var bg = detectPageBackground();
-    if (isDarkColor(bg.html, 50) || isDarkColor(bg.body, 50)) return true;
+    var darkThreshold = Math.min(threshold, 80); // use a reasonable dark cutoff
+    if (isDarkColor(bg.html, darkThreshold) || isDarkColor(bg.body, darkThreshold)) return true;
     return false;
   }
 

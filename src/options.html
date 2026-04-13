@@ -163,6 +163,47 @@
       background-color: rgba(255, 71, 87, 0.2);
       color: #ff4757;
     }
+
+    .tip-box {
+      background-color: #1e2a1e;
+      border: 1px solid #2e7d32;
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .tip-box h4 {
+      color: #66bb6a;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .tip-box p, .tip-box li {
+      font-size: 12px;
+      color: #a5d6a7;
+      line-height: 1.6;
+    }
+
+    .tip-box ol {
+      padding-left: 20px;
+      margin-top: 8px;
+    }
+
+    .tip-box code {
+      background-color: #333;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 12px;
+      color: #e0e0e0;
+      user-select: all;
+    }
+
+    .tip-box .warning {
+      color: #ffb74d;
+      font-size: 11px;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -186,6 +227,33 @@
         <p>How long the overlay fades out (in milliseconds)</p>
       </div>
       <input type="number" id="transitionDuration" min="0" max="1000" value="200">
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Eliminate Pre-Navigation Flash</h2>
+
+    <div class="setting-row" style="display: block;">
+      <div class="setting-info">
+        <p>Flash Guard injects dark CSS as early as possible, but Firefox paints a white canvas
+          <strong>before</strong> any HTTP response arrives. This single white frame is visible on
+          very fast pages (e.g. localhost). No extension can override this because it happens before
+          the response body exists.</p>
+      </div>
+
+      <div class="tip-box">
+        <h4>One-Time Fix via about:config</h4>
+        <p>Change Firefox's default canvas color to dark so the pre-navigation frame is no longer white:</p>
+        <ol>
+          <li>Open a new tab and type <code>about:config</code> in the address bar, then press Enter.</li>
+          <li>Accept the warning if prompted.</li>
+          <li>Search for <code>browser.display.background_color</code></li>
+          <li>Change the value from <code>#FFFFFF</code> to <code>#1a1a1a</code></li>
+        </ol>
+        <p class="warning">This is a global Firefox preference. It changes the default background for all pages
+          that do not set their own background color. You can revert it at any time by resetting the value
+          back to <code>#FFFFFF</code>.</p>
+      </div>
     </div>
   </div>
 

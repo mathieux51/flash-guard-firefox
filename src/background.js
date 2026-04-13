@@ -37,10 +37,33 @@ browser.storage.onChanged.addListener(function(changes) {
     cachedSettings = Object.assign(
       {}, DEFAULT_SETTINGS, changes.settings.newValue
     );
+    // Update color scheme override when enabled state changes
+    applyColorSchemeOverride(cachedSettings.enabled);
   }
 });
 
 refreshCache();
+
+// -------------------------------------------------------------------
+// browserSettings — best-effort content color scheme override
+//
+// Setting overrideContentColorScheme to "dark" tells Firefox to
+// report prefers-color-scheme: dark to all web pages. Pages that
+// respect this media query will load their dark variant, reducing
+// the white flash. This does NOT change browser.display.background_color
+// (the canvas color painted before any HTTP response arrives).
+// -------------------------------------------------------------------
+
+function applyColorSchemeOverride(enabled) {
+  if (typeof browser.browserSettings !== 'undefined' &&
+      browser.browserSettings.overrideContentColorScheme) {
+    browser.browserSettings.overrideContentColorScheme
+      .set({ value: enabled ? 'dark' : 'auto' })
+      .catch(function() { /* permission may be missing or API unavailable */ });
+  }
+}
+
+applyColorSchemeOverride(cachedSettings.enabled);
 
 // -------------------------------------------------------------------
 // Settings CRUD (async, reads from storage)
@@ -52,6 +75,8 @@ browser.runtime.onInstalled.addListener(function() {
       browser.storage.local.set({ settings: DEFAULT_SETTINGS });
     }
   });
+  // Apply color scheme override on install
+  applyColorSchemeOverride(true);
 });
 
 function getSettings() {
@@ -98,12 +123,18 @@ function isDomainExcluded(url, excludedDomains) {
 // content script can disable it later by setting the attribute.
 // -------------------------------------------------------------------
 
-var EARLY_CSS = '<style id="fg-early">' +
+var EARLY_CSS_PREFIX = '<style id="fg-early">' +
   'html:not([data-flash-guard-ready]),' +
   'html:not([data-flash-guard-ready])>body' +
-  '{background:#1a1a1a!important}' +
+  '{background:';
+var EARLY_CSS_SUFFIX = '!important}' +
   '</style>';
-var EARLY_CSS_BYTES = new TextEncoder().encode(EARLY_CSS);
+
+function getEarlyCssBytes() {
+  var color = cachedSettings.backgroundColor || '#1a1a1a';
+  var css = EARLY_CSS_PREFIX + color + EARLY_CSS_SUFFIX;
+  return new TextEncoder().encode(css);
+}
 
 browser.webRequest.onHeadersReceived.addListener(
   function(details) {
@@ -116,6 +147,7 @@ browser.webRequest.onHeadersReceived.addListener(
 
     var filter = browser.webRequest.filterResponseData(details.requestId);
     var injected = false;
+    var earlyCssBytes = getEarlyCssBytes();
 
     filter.ondata = function(event) {
       if (!injected) {
@@ -125,7 +157,7 @@ browser.webRequest.onHeadersReceived.addListener(
 
         if (pos !== -1) {
           filter.write(event.data.slice(0, pos));
-          filter.write(EARLY_CSS_BYTES.buffer);
+          filter.write(earlyCssBytes.buffer);
           filter.write(event.data.slice(pos));
           return;
         }
@@ -213,6 +245,7 @@ browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
         var updated = Object.assign({}, settings, { enabled: !settings.enabled });
         updateSettings(updated).then(function() {
           updateBrowserActionIcon(updated.enabled);
+          applyColorSchemeOverride(updated.enabled);
           sendResponse(updated);
         });
       });
