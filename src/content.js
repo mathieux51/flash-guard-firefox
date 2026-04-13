@@ -18,6 +18,7 @@
   var overlay = null;
   var isActive = false;
   var settled = false; // true once we have decided to remove the overlay
+  var extensionEnabled = true; // tracks global enable state; updated after async check
 
   // ---------------------------------------------------------------
   // STEP 1 — Synchronous protection (runs before any async work).
@@ -32,7 +33,7 @@
   earlyStyle.textContent =
     'html:not([data-flash-guard-ready]),' +
     'html:not([data-flash-guard-ready])>body' +
-    '{background-color:' + DEFAULT_BG + '!important}';
+    '{color-scheme:dark!important;background-color:' + DEFAULT_BG + '!important}';
   document.documentElement.appendChild(earlyStyle);
 
   overlay = document.createElement('div');
@@ -57,7 +58,7 @@
   // Utility helpers
   // ---------------------------------------------------------------
 
-  /** Disengage all injected CSS (stream-filter style, inline style, file rule). */
+  /** Disengage all injected CSS (stream-filter style, meta tag, inline style, file rule). */
   function markReady() {
     if (document.documentElement) {
       document.documentElement.setAttribute('data-flash-guard-ready', '');
@@ -66,6 +67,11 @@
     var fgEarly = document.getElementById('fg-early');
     if (fgEarly && fgEarly.parentNode) {
       fgEarly.parentNode.removeChild(fgEarly);
+    }
+    // Remove stream-filter injected meta tag (from background.js)
+    var fgMeta = document.getElementById('fg-color-scheme');
+    if (fgMeta && fgMeta.parentNode) {
+      fgMeta.parentNode.removeChild(fgMeta);
     }
     // Remove content-script injected style
     if (earlyStyle && earlyStyle.parentNode) {
@@ -96,8 +102,9 @@
   }
 
   function cleanup() {
-    if (overlay && overlay.parentNode) {
-      overlay.parentNode.removeChild(overlay);
+    if (overlay) {
+      overlay.style.setProperty('opacity', '0', 'important');
+      overlay.style.setProperty('transition', 'none', 'important');
     }
     isActive = false;
   }
@@ -152,7 +159,15 @@
       type: 'CHECK_DOMAIN',
       url: window.location.href
     }).then(function(response) {
-      if (!response || !response.settings.enabled || response.excluded) {
+      if (!response || !response.settings.enabled) {
+        extensionEnabled = false;
+        removeOverlay(0);
+        return;
+      }
+
+      extensionEnabled = true;
+
+      if (response.excluded) {
         removeOverlay(0);
         return;
       }
@@ -167,6 +182,7 @@
       waitForPageReady();
 
     }).catch(function() {
+      extensionEnabled = false;
       removeOverlay(0);
     });
   }
@@ -227,6 +243,53 @@
     settled = true;
     fadeOverlay(fadeDuration);
   }
+
+  // ---------------------------------------------------------------
+  // STEP 2.5 — Re-darken page before unload.
+  //
+  // When the user navigates away, Firefox tears down the current
+  // page. Between teardown and the new canvas paint there can be
+  // a brief moment where the OS/compositor window backing (white)
+  // is visible. By re-applying the dark overlay just before
+  // unload, the last composited frame is dark, which minimises
+  // or eliminates the white flash.
+  // ---------------------------------------------------------------
+  window.addEventListener('beforeunload', function() {
+    if (!extensionEnabled) return;
+    // Re-enable CSS file rules (removes data-flash-guard-ready)
+    if (document.documentElement) {
+      document.documentElement.removeAttribute('data-flash-guard-ready');
+    }
+    // Show overlay at full opacity
+    if (overlay) {
+      overlay.style.setProperty('opacity', '1', 'important');
+      overlay.style.setProperty('transition', 'none', 'important');
+    }
+    // Safety: undo if navigation is canceled (e.g. page's own
+    // beforeunload dialog). The setTimeout is paused while the
+    // modal dialog is open, so it fires after the user responds.
+    setTimeout(function() {
+      if (!document.documentElement) return;
+      document.documentElement.setAttribute('data-flash-guard-ready', '');
+      if (overlay) {
+        overlay.style.setProperty('transition', 'opacity 150ms ease-out', 'important');
+        overlay.style.setProperty('opacity', '0', 'important');
+      }
+    }, 500);
+  });
+
+  // Undo darkening when restored from bfcache
+  window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+      if (document.documentElement) {
+        document.documentElement.setAttribute('data-flash-guard-ready', '');
+      }
+      if (overlay) {
+        overlay.style.setProperty('transition', 'opacity 150ms ease-out', 'important');
+        overlay.style.setProperty('opacity', '0', 'important');
+      }
+    }
+  });
 
   // ---------------------------------------------------------------
   // Kick off. The overlay is already visible, so there is no flash

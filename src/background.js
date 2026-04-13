@@ -123,10 +123,11 @@ function isDomainExcluded(url, excludedDomains) {
 // content script can disable it later by setting the attribute.
 // -------------------------------------------------------------------
 
-var EARLY_CSS_PREFIX = '<style id="fg-early">' +
+var EARLY_CSS_PREFIX = '<meta id="fg-color-scheme" name="color-scheme" content="dark">' +
+  '<style id="fg-early">' +
   'html:not([data-flash-guard-ready]),' +
   'html:not([data-flash-guard-ready])>body' +
-  '{background:';
+  '{color-scheme:dark!important;background:';
 var EARLY_CSS_SUFFIX = '!important}' +
   '</style>';
 
@@ -161,6 +162,9 @@ browser.webRequest.onHeadersReceived.addListener(
           filter.write(event.data.slice(pos));
           return;
         }
+        // Fallback: prepend CSS to the start of the response.
+        // The browser parser will move the <style> into <head>.
+        filter.write(earlyCssBytes.buffer);
       }
       filter.write(event.data);
     };

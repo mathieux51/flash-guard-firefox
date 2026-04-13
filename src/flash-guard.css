@@ -11,6 +11,7 @@
 html:not([data-flash-guard-ready]),
 html:not([data-flash-guard-ready]) > body {
   background-color: #1a1a1a !important;
+  color-scheme: dark !important;
 }
 
 /* Overlay element injected by content.js */
