@@ -45,19 +45,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Render excluded domains list
   function renderExcludedDomains(domains) {
-    excludedList.innerHTML = '';
-    
+    while (excludedList.firstChild) {
+      excludedList.removeChild(excludedList.firstChild);
+    }
+
     if (domains.length === 0) {
-      excludedList.innerHTML = '<li class="empty-message">No excluded domains</li>';
+      const li = document.createElement('li');
+      li.className = 'empty-message';
+      li.textContent = 'No excluded domains';
+      excludedList.appendChild(li);
       return;
     }
 
     domains.forEach(domain => {
       const li = document.createElement('li');
-      li.innerHTML = `
-        <span class="domain-text">${domain}</span>
-        <button class="btn-remove" data-domain="${domain}">x</button>
-      `;
+
+      const span = document.createElement('span');
+      span.className = 'domain-text';
+      span.textContent = domain;
+      li.appendChild(span);
+
+      const btn = document.createElement('button');
+      btn.className = 'btn-remove';
+      btn.dataset.domain = domain;
+      btn.textContent = 'x';
+      li.appendChild(btn);
+
       excludedList.appendChild(li);
     });
   }
