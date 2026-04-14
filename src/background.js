@@ -12,7 +12,7 @@
 var DEFAULT_SETTINGS = {
   enabled: true,
   backgroundColor: '#1a1a1a',
-  transitionDuration: 200,
+  transitionDuration: 300,
   detectThreshold: 240,
   excludedDomains: [],
   autoDisableOnDarkSites: true

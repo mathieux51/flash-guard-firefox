@@ -84,9 +84,21 @@
     if (!overlay || !isActive) return;
 
     if (duration && duration > 0) {
-      overlay.style.setProperty('transition', 'opacity ' + duration + 'ms ease-out', 'important');
+      // Use transitionend to remove the overlay only after the CSS
+      // transition has fully completed. A setTimeout fallback guards
+      // against the event never firing (e.g. if the element is
+      // detached or the property is already at the target value).
+      var removed = false;
+      function onDone() {
+        if (removed) return;
+        removed = true;
+        cleanup();
+      }
+      overlay.addEventListener('transitionend', onDone, { once: true });
+      setTimeout(onDone, duration + 50);
+
+      overlay.style.setProperty('transition', 'opacity ' + duration + 'ms cubic-bezier(0.4, 0, 0.2, 1)', 'important');
       overlay.style.setProperty('opacity', '0', 'important');
-      setTimeout(cleanup, duration);
     } else {
       cleanup();
     }
@@ -210,7 +222,7 @@
 
     // Safety timeout: never keep overlay more than 3 seconds
     setTimeout(function() {
-      removeOverlay(settings ? settings.transitionDuration : 200);
+      removeOverlay(settings ? settings.transitionDuration : 300);
     }, 3000);
   }
 
@@ -218,7 +230,7 @@
     if (settled) return;
 
     if (!settings) {
-      removeOverlay(200);
+      removeOverlay(300);
       return;
     }
 
